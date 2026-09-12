@@ -10,7 +10,15 @@ namespace Anubis.Characters
         public string DisplayName = "Anúbis";
         [TextArea] public string Description = "Guardião das almas. Combate próximo com o Khopesh e dash pelas areias.";
 
+        [Header("Runtime Loadout")]
+        [Tooltip("Resolved by CharacterRuntimeFactory. New gods can provide another attack implementation without changing PlayerController.")]
+        public string PrimaryAttackId = CharacterRuntimeIds.KhopeshAttack;
+        [Tooltip("Resolved by CharacterRuntimeFactory. The default sprite view works with any character using resource paths below.")]
+        public string ViewId = CharacterRuntimeIds.SpriteView;
+
         [Header("Presentation")]
+        public string IdleSpriteResourcePath = "Characters/Anubis";
+        public string PrimaryAttackSpriteResourcePath = "Characters/AnubisAttack";
         public Color BodyColor = new(0.12f, 0.08f, 0.08f, 1f);
         public Color AccentColor = new(0.85f, 0.67f, 0.18f, 1f);
         public float VisualScale = 1.05f;
@@ -30,7 +38,7 @@ namespace Anubis.Characters
         public float DashCooldown = 0.85f;
         public float DashIFrames = 0.14f;
 
-        [Header("Khopesh")]
+        [Header("Primary Attack")]
         public float AttackDamage = 18f;
         public float AttackRange = 2.1f;
         public float AttackRadius = 0.85f;

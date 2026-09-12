@@ -16,12 +16,18 @@ namespace Anubis.Progression
 
         public void Apply(PlayerController player, BlessingDefinition definition, GameSignals signals)
         {
-            player.Khopesh.DamageMultiplier += _multiplier;
+            if (player.PrimaryAttack != null)
+            {
+                player.PrimaryAttack.DamageMultiplier += _multiplier;
+            }
         }
 
         public void Remove(PlayerController player, GameSignals signals)
         {
-            player.Khopesh.DamageMultiplier -= _multiplier;
+            if (player.PrimaryAttack != null)
+            {
+                player.PrimaryAttack.DamageMultiplier -= _multiplier;
+            }
         }
     }
 

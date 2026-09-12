@@ -5,7 +5,7 @@ using UnityEngine;
 
 namespace Anubis.Characters
 {
-    public sealed class KhopeshAttack : MonoBehaviour
+    public sealed class KhopeshAttack : MonoBehaviour, IPrimaryAttack
     {
         static readonly Collider2D[] Hits = new Collider2D[24];
 

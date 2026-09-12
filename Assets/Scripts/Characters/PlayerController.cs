@@ -10,9 +10,9 @@ namespace Anubis.Characters
         public Health Health { get; private set; }
         public TopDownMotor Motor { get; private set; }
         public DashController Dash { get; private set; }
-        public KhopeshAttack Khopesh { get; private set; }
-        public SpriteRenderer Body { get; private set; }
-        AnubisView _view;
+        public IPrimaryAttack PrimaryAttack { get; private set; }
+        public ICharacterView View { get; private set; }
+        public SpriteRenderer Body => View?.Body;
 
         GameInputReader _input;
         Camera _camera;
@@ -50,12 +50,8 @@ namespace Anubis.Characters
             Dash = gameObject.AddComponent<DashController>();
             Dash.Configure(definition, Motor, Health, body);
 
-            Khopesh = gameObject.AddComponent<KhopeshAttack>();
-            Khopesh.Configure(definition, Motor, pool);
-
-            _view = gameObject.AddComponent<AnubisView>();
-            _view.Build(definition);
-            Body = _view.Body;
+            PrimaryAttack = CharacterRuntimeFactory.AddPrimaryAttack(gameObject, definition, Motor, pool);
+            View = CharacterRuntimeFactory.AddView(gameObject, definition);
             gameObject.layer = GameLayers.Player;
             gameObject.tag = "Player";
 
@@ -90,8 +86,8 @@ namespace Anubis.Characters
                 return;
             }
 
-            _view?.SetDashing(Dash.IsDashing);
-            _view?.SetFacing(Motor.Facing);
+            View?.SetDashing(Dash.IsDashing);
+            View?.SetFacing(Motor.Facing);
             if (Dash.IsDashing)
             {
                 return;
@@ -103,7 +99,6 @@ namespace Anubis.Characters
             {
                 Motor.Face(aim);
             }
-
         }
 
         void OnAttack()
@@ -113,9 +108,9 @@ namespace Anubis.Characters
                 return;
             }
 
-            if (Khopesh.TryAttack(AimDirection()))
+            if (PrimaryAttack != null && PrimaryAttack.TryAttack(AimDirection()))
             {
-                _view?.PlayAttack();
+                View?.PlayPrimaryAttack();
             }
         }
 
@@ -147,13 +142,12 @@ namespace Anubis.Characters
 
         void OnDestroy()
         {
-            if (!_inputBound || _input == null)
+            if (_inputBound && _input != null)
             {
-                return;
+                _input.AttackPressed -= OnAttack;
+                _input.DashPressed -= OnDash;
             }
 
-            _input.AttackPressed -= OnAttack;
-            _input.DashPressed -= OnDash;
             if (Health != null)
             {
                 Health.Died -= OnDied;
