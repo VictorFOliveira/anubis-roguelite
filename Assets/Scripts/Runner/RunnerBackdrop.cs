@@ -11,13 +11,12 @@ namespace Anubis.Runner
         Transform _farLayer;
         Transform _midLayer;
         Sprite _unit;
-        RunnerBiome _biome;
 
         public void Configure(Camera camera)
         {
             _camera = camera;
             transform.SetParent(camera.transform, false);
-            transform.localPosition = Vector3.zero;
+            transform.localPosition = new Vector3(0f, 0f, 10f);
             _unit = RuntimeSpriteFactory.CreateRect(Color.white, 64, 64);
 
             _farLayer = new GameObject("FarLayer").transform;
@@ -35,7 +34,6 @@ namespace Anubis.Runner
                 return;
             }
 
-            _biome = biome;
             foreach (var go in _generated)
             {
                 if (go != null) Destroy(go);
