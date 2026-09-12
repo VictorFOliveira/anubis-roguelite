@@ -80,12 +80,6 @@ namespace Anubis.Characters
                     continue;
                 }
 
-                var root = collider.transform.root.gameObject;
-                if (_alreadyHit.Contains(root))
-                {
-                    continue;
-                }
-
                 var target = (Vector2)collider.transform.position;
                 var toTarget = target - origin;
                 var distance = toTarget.magnitude;
@@ -105,7 +99,13 @@ namespace Anubis.Characters
                     continue;
                 }
 
-                _alreadyHit.Add(root);
+                var targetObject = damageable is Component component ? component.gameObject : collider.gameObject;
+                if (_alreadyHit.Contains(targetObject))
+                {
+                    continue;
+                }
+
+                _alreadyHit.Add(targetObject);
                 damageable.TryApplyDamage(new DamageInfo(
                     _definition.AttackDamage * DamageMultiplier,
                     origin,
