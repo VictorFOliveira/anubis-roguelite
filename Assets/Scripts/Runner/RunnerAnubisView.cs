@@ -47,13 +47,7 @@ namespace Anubis.Runner
             _dustB = CreateDust("DustB", -0.75f);
         }
 
-        public void Tick(
-            float verticalVelocity,
-            bool grounded,
-            bool invulnerable,
-            bool boosted,
-            bool sliding,
-            float runSpeed)
+        public void Tick(float verticalVelocity, bool grounded, bool invulnerable, bool boosted, bool sliding, float runSpeed)
         {
             if (_dead || _body == null)
             {
@@ -82,25 +76,10 @@ namespace Anubis.Runner
             AnimateShadow(grounded, sliding, verticalVelocity);
         }
 
-        public void TriggerLanding()
-        {
-            _landingTimer = 0.16f;
-        }
-
-        public void TriggerJump()
-        {
-            _jumpKickTimer = 0.15f;
-        }
-
-        public void TriggerSlide()
-        {
-            _slideKickTimer = 0.16f;
-        }
-
-        public void TriggerStompBounce()
-        {
-            _stompTimer = 0.18f;
-        }
+        public void TriggerLanding() => _landingTimer = 0.16f;
+        public void TriggerJump() => _jumpKickTimer = 0.15f;
+        public void TriggerSlide() => _slideKickTimer = 0.16f;
+        public void TriggerStompBounce() => _stompTimer = 0.18f;
 
         void TickMotionTimers()
         {
@@ -112,9 +91,9 @@ namespace Anubis.Runner
 
         void AnimateRun(float runSpeed, bool boosted)
         {
+            const float targetHeight = 2.22f;
             var speed01 = Mathf.InverseLerp(7f, 12f, runSpeed);
-            var cadence = Mathf.Lerp(9.5f, 14.5f, speed01);
-            if (boosted) cadence *= 1.18f;
+            var cadence = Mathf.Lerp(9.5f, 14.5f, speed01) * (boosted ? 1.18f : 1f);
 
             _runFrameTimer += Time.deltaTime * cadence;
             if (_runFrames.Length > 0)
@@ -123,12 +102,12 @@ namespace Anubis.Runner
                 if (index != _runFrameIndex || _body.sprite == null)
                 {
                     _runFrameIndex = index;
-                    ApplySprite(_runFrames[_runFrameIndex], 2.22f);
+                    ApplySprite(_runFrames[_runFrameIndex], targetHeight);
                 }
             }
             else
             {
-                ApplySprite(_runSprite ?? _walkSprite ?? _idleSprite, 2.22f);
+                ApplySprite(_runSprite ?? _walkSprite ?? _idleSprite, targetHeight);
             }
 
             var phase = Time.time * cadence;
@@ -136,17 +115,15 @@ namespace Anubis.Runner
             var footPlant = Mathf.Abs(Mathf.Sin(phase));
             var bounce = footPlant * Mathf.Lerp(0.038f, 0.072f, speed01);
             var lean = boosted ? -10f : Mathf.Lerp(-4.5f, -7.5f, speed01);
-
-            var landingAmount = _landingTimer > 0f
+            var landing = _landingTimer > 0f
                 ? Mathf.Sin((1f - _landingTimer / 0.16f) * Mathf.PI)
                 : 0f;
 
-            var sx = 1f + footPlant * 0.025f + landingAmount * 0.10f;
-            var sy = 1f - footPlant * 0.020f - landingAmount * 0.13f;
-
-            _body.transform.localPosition = new Vector3(0f, bounce - landingAmount * 0.05f, 0f);
+            _body.transform.localPosition = new Vector3(0f, bounce - landing * 0.05f, 0f);
             _body.transform.localRotation = Quaternion.Euler(0f, 0f, lean + stride * 1.8f);
-            MultiplyCurrentScale(sx, sy);
+            SetPoseScale(targetHeight,
+                1f + footPlant * 0.025f + landing * 0.10f,
+                1f - footPlant * 0.020f - landing * 0.13f);
 
             AnimateDust(_dustA, phase, 0f, boosted ? 1.25f : 1f);
             AnimateDust(_dustB, phase + Mathf.PI, 0.22f, boosted ? 1.15f : 0.9f);
@@ -154,7 +131,8 @@ namespace Anubis.Runner
 
         void AnimateAir(float verticalVelocity, bool boosted)
         {
-            ApplySprite(_jumpSprite ?? _runSprite ?? _idleSprite, 2.18f);
+            const float targetHeight = 2.18f;
+            ApplySprite(_jumpSprite ?? _runSprite ?? _idleSprite, targetHeight);
 
             var ascending = verticalVelocity > 0.35f;
             var velocity01 = Mathf.Clamp(verticalVelocity / 12f, -1f, 1f);
@@ -162,82 +140,73 @@ namespace Anubis.Runner
                 ? Mathf.Lerp(-5f, -14f, Mathf.Clamp01(velocity01))
                 : Mathf.Lerp(5f, 16f, Mathf.Clamp01(-velocity01));
 
-            if (_stompTimer > 0f)
-            {
-                tilt -= 7f;
-            }
+            if (_stompTimer > 0f) tilt -= 7f;
 
             var jumpKick = _jumpKickTimer > 0f
                 ? Mathf.Sin((1f - _jumpKickTimer / 0.15f) * Mathf.PI)
                 : 0f;
 
-            var stretchX = ascending ? 0.94f : 1.04f;
-            var stretchY = ascending ? 1.07f : 0.96f;
-            stretchX -= jumpKick * 0.035f;
-            stretchY += jumpKick * 0.055f;
-
+            var sx = (ascending ? 0.94f : 1.04f) - jumpKick * 0.035f;
+            var sy = (ascending ? 1.07f : 0.96f) + jumpKick * 0.055f;
             if (boosted)
             {
-                stretchX *= 0.95f;
-                stretchY *= 1.06f;
+                sx *= 0.95f;
+                sy *= 1.06f;
                 tilt -= 5f;
             }
 
             _body.transform.localPosition = new Vector3(0.02f, 0.08f + jumpKick * 0.05f, 0f);
             _body.transform.localRotation = Quaternion.Euler(0f, 0f, tilt);
-            MultiplyCurrentScale(stretchX, stretchY);
-
-            _dustA.gameObject.SetActive(false);
-            _dustB.gameObject.SetActive(false);
+            SetPoseScale(targetHeight, sx, sy);
+            HideDust();
         }
 
         void AnimateSlide(bool boosted)
         {
-            ApplySprite(_slideSprite ?? _runSprite ?? _idleSprite, 1.52f);
+            const float targetHeight = 1.46f;
+            ApplySprite(_slideSprite ?? _runSprite ?? _idleSprite, targetHeight);
 
             var phase = Time.time * (boosted ? 22f : 17f);
-            var vibration = Mathf.Sin(phase) * 0.018f;
+            var vibration = Mathf.Sin(phase) * 0.015f;
             var entry = _slideKickTimer > 0f
                 ? Mathf.Sin((1f - _slideKickTimer / 0.16f) * Mathf.PI)
                 : 0f;
 
-            _body.transform.localPosition = new Vector3(0.18f, -0.38f + vibration, 0f);
-            _body.transform.localRotation = Quaternion.Euler(0f, 0f, -3f - entry * 4f);
-            MultiplyCurrentScale(1.06f + entry * 0.08f, 0.94f - entry * 0.04f);
+            _body.transform.localPosition = new Vector3(0.30f, -0.43f + vibration, 0f);
+            _body.transform.localRotation = Quaternion.Euler(0f, 0f, -2f - entry * 3f);
+            SetPoseScale(targetHeight, 1.08f + entry * 0.06f, 0.96f - entry * 0.03f);
 
-            AnimateDust(_dustA, phase, 0.05f, 1.55f);
-            AnimateDust(_dustB, phase + 1.6f, 0.34f, 1.35f);
+            AnimateDust(_dustA, phase, 0.05f, 1.65f);
+            AnimateDust(_dustB, phase + 1.6f, 0.34f, 1.45f);
         }
 
         void AnimateShadow(bool grounded, bool sliding, float verticalVelocity)
         {
-            if (_shadow == null)
-            {
-                return;
-            }
+            if (_shadow == null) return;
 
             if (sliding && grounded)
             {
-                _shadow.transform.localPosition = new Vector3(0.20f, -0.84f, 0f);
-                _shadow.transform.localScale = new Vector3(1.22f, 0.15f, 1f);
+                _shadow.transform.localPosition = new Vector3(0.22f, -0.84f, 0f);
+                _shadow.transform.localScale = new Vector3(1.28f, 0.14f, 1f);
                 return;
             }
 
             _shadow.transform.localPosition = new Vector3(0f, -0.86f, 0f);
             var airborne = grounded ? 0f : Mathf.Clamp01(Mathf.Abs(verticalVelocity) / 14f);
-            var x = Mathf.Lerp(0.9f, 0.58f, airborne);
-            var y = Mathf.Lerp(0.18f, 0.11f, airborne);
-            _shadow.transform.localScale = new Vector3(x, y, 1f);
+            _shadow.transform.localScale = new Vector3(
+                Mathf.Lerp(0.9f, 0.58f, airborne),
+                Mathf.Lerp(0.18f, 0.11f, airborne),
+                1f);
         }
 
         void LoadMovementSprites()
         {
             var legacy = LoadFirstSprite("Characters/Anubis");
-            _idleSprite = LoadFirstSprite("Runner/anubis_idle", "Runner/Anubis/anubis_idle") ?? legacy;
-            _walkSprite = LoadFirstSprite("Runner/anubis_walk", "Runner/Anubis/anubis_walk");
-            _runSprite = LoadFirstSprite("Runner/anubis_run", "Runner/Anubis/anubis_run") ?? _walkSprite ?? _idleSprite;
-            _jumpSprite = LoadFirstSprite("Runner/anubis_jump", "Runner/Anubis/anubis_jump") ?? _runSprite;
-            _slideSprite = LoadFirstSprite("Runner/anubis_slide", "Runner/Anubis/anubis_slide") ?? _runSprite;
+            _idleSprite = LoadFirstSprite("Runner/anubis_idle") ?? legacy;
+            _walkSprite = LoadFirstSprite("Runner/anubis_walk");
+            _runSprite = LoadFirstSprite("Runner/anubis_run") ?? _walkSprite ?? _idleSprite;
+            _jumpSprite = LoadFirstSprite("Runner/anubis_jump") ?? _runSprite;
+            _slideSprite = LoadFirstSprite("Runner/anubis_slide") ?? _runSprite;
 
             var authoredRun = LoadFrames("Runner/AnubisRun");
             if (authoredRun.Length > 0)
@@ -255,28 +224,16 @@ namespace Anubis.Runner
 
         void ApplySprite(Sprite sprite, float targetHeight)
         {
-            if (_body == null || sprite == null)
-            {
-                return;
-            }
-
+            if (_body == null || sprite == null) return;
             _body.sprite = sprite;
-            var height = Mathf.Max(0.05f, sprite.bounds.size.y);
-            var scale = targetHeight / height;
+            var scale = targetHeight / Mathf.Max(0.05f, sprite.bounds.size.y);
             _body.transform.localScale = Vector3.one * scale;
         }
 
-        void MultiplyCurrentScale(float x, float y)
+        void SetPoseScale(float targetHeight, float x, float y)
         {
-            if (_body == null || _body.sprite == null)
-            {
-                return;
-            }
-
-            var stateHeight = _body.sprite == _slideSprite ? 1.52f : 2.22f;
-            if (_body.sprite == _jumpSprite) stateHeight = 2.18f;
-            var height = Mathf.Max(0.05f, _body.sprite.bounds.size.y);
-            var baseScale = stateHeight / height;
+            if (_body == null || _body.sprite == null) return;
+            var baseScale = targetHeight / Mathf.Max(0.05f, _body.sprite.bounds.size.y);
             _body.transform.localScale = new Vector3(baseScale * x, baseScale * y, 1f);
         }
 
@@ -287,11 +244,8 @@ namespace Anubis.Runner
             {
                 _body.transform.localRotation = Quaternion.Euler(0f, 0f, 82f);
                 _body.color = new Color(0.72f, 0.72f, 0.72f, 1f);
-                MultiplyCurrentScale(1.08f, 0.92f);
             }
-
-            if (_dustA != null) _dustA.gameObject.SetActive(false);
-            if (_dustB != null) _dustB.gameObject.SetActive(false);
+            HideDust();
         }
 
         Transform CreateDust(string name, float x)
@@ -312,6 +266,12 @@ namespace Anubis.Runner
             dust.localScale = new Vector3(scale * 1.25f, scale * 0.72f, 1f);
         }
 
+        void HideDust()
+        {
+            if (_dustA != null) _dustA.gameObject.SetActive(false);
+            if (_dustB != null) _dustB.gameObject.SetActive(false);
+        }
+
         SpriteRenderer CreateRenderer(string name, int order)
         {
             var child = new GameObject(name);
@@ -321,40 +281,18 @@ namespace Anubis.Runner
             return renderer;
         }
 
-        static Sprite LoadFirstSprite(params string[] paths)
+        static Sprite LoadFirstSprite(string path)
         {
-            foreach (var path in paths)
-            {
-                if (string.IsNullOrWhiteSpace(path))
-                {
-                    continue;
-                }
-
-                var single = Resources.Load<Sprite>(path);
-                if (single != null)
-                {
-                    return single;
-                }
-
-                var sprites = Resources.LoadAll<Sprite>(path);
-                if (sprites != null && sprites.Length > 0)
-                {
-                    System.Array.Sort(sprites, (a, b) => string.CompareOrdinal(a.name, b.name));
-                    return sprites[0];
-                }
-            }
-
-            return null;
+            var single = Resources.Load<Sprite>(path);
+            if (single != null) return single;
+            var sprites = Resources.LoadAll<Sprite>(path);
+            return sprites != null && sprites.Length > 0 ? sprites[0] : null;
         }
 
         static Sprite[] LoadFrames(string path)
         {
             var sprites = Resources.LoadAll<Sprite>(path);
-            if (sprites == null || sprites.Length == 0)
-            {
-                return System.Array.Empty<Sprite>();
-            }
-
+            if (sprites == null || sprites.Length == 0) return System.Array.Empty<Sprite>();
             System.Array.Sort(sprites, (a, b) => string.CompareOrdinal(a.name, b.name));
             return sprites;
         }
