@@ -76,9 +76,9 @@ namespace Anubis.Runner
         {
             _player = player;
             _beam = gameObject.AddComponent<SpriteRenderer>();
-            _beam.sprite = RuntimeSpriteFactory.CreateRect(new Color(1f, 0.82f, 0.2f), 12, 128);
+            _beam.sprite = RuntimeSpriteFactory.CreateRect(new Color(1f, 0.82f, 0.2f), 64, 64);
             _beam.sortingOrder = GameSorting.Vfx + 5;
-            transform.localScale = new Vector3(0.18f, 8.5f, 1f);
+            transform.localScale = new Vector3(0.14f, 8.5f, 1f);
             _beam.color = new Color(1f, 0.85f, 0.25f, 0.22f);
             _timer = 0.72f;
         }
@@ -109,9 +109,9 @@ namespace Anubis.Runner
         {
             _struck = true;
             _beam.color = new Color(1f, 0.95f, 0.6f, 1f);
-            transform.localScale = new Vector3(0.72f, 8.5f, 1f);
+            transform.localScale = new Vector3(0.82f, 8.5f, 1f);
 
-            if (_player != null && Mathf.Abs(_player.transform.position.x - transform.position.x) < 0.82f)
+            if (_player != null && Mathf.Abs(_player.transform.position.x - transform.position.x) < 0.9f)
             {
                 _player.TakeHit();
             }
