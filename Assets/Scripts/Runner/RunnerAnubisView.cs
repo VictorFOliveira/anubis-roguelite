@@ -85,7 +85,7 @@ namespace Anubis.Runner
             if (_slideSprite != null)
             {
                 _body.sprite = _slideSprite;
-                ApplySpriteByWidth(_slideSprite, 2.35f);
+                ApplySpriteByWidth(_slideSprite, 1.58f);
             }
         }
 
@@ -131,7 +131,8 @@ namespace Anubis.Runner
 
             _body.transform.localPosition = new Vector3(0f, bounce - landing * 0.05f, 0f);
             _body.transform.localRotation = Quaternion.Euler(0f, 0f, lean + stride * 1.8f);
-            SetPoseScaleByHeight(targetHeight,
+            SetPoseScaleByHeight(
+                targetHeight,
                 1f + footPlant * 0.025f + landing * 0.10f,
                 1f - footPlant * 0.020f - landing * 0.13f);
 
@@ -179,22 +180,22 @@ namespace Anubis.Runner
                 return;
             }
 
-            // A pose de slide é comprida e baixa; escalar pela largura preserva esse formato.
-            const float targetWidth = 2.35f;
+            // O sprite de slide precisa ficar baixo e próximo da largura real do collider.
+            const float targetWidth = 1.58f;
             ApplySpriteByWidth(sprite, targetWidth);
 
             var phase = Time.time * (boosted ? 22f : 17f);
-            var vibration = Mathf.Sin(phase) * 0.012f;
+            var vibration = Mathf.Sin(phase) * 0.010f;
             var entry = _slideKickTimer > 0f
                 ? Mathf.Sin((1f - _slideKickTimer / 0.22f) * Mathf.PI)
                 : 0f;
 
-            _body.transform.localPosition = new Vector3(0.34f, -0.46f + vibration, 0f);
-            _body.transform.localRotation = Quaternion.Euler(0f, 0f, -1.5f - entry * 2.5f);
-            SetPoseScaleByWidth(targetWidth, 1.03f + entry * 0.06f, 0.98f - entry * 0.03f);
+            _body.transform.localPosition = new Vector3(0.18f, -0.44f + vibration, 0f);
+            _body.transform.localRotation = Quaternion.Euler(0f, 0f, -1.5f - entry * 2f);
+            SetPoseScaleByWidth(targetWidth, 1.02f + entry * 0.04f, 0.98f - entry * 0.02f);
 
-            AnimateDust(_dustA, phase, 0.05f, 1.80f);
-            AnimateDust(_dustB, phase + 1.6f, 0.34f, 1.55f);
+            AnimateDust(_dustA, phase, 0.05f, 1.55f);
+            AnimateDust(_dustB, phase + 1.6f, 0.34f, 1.35f);
         }
 
         void AnimateShadow(bool grounded, bool sliding, float verticalVelocity)
@@ -203,8 +204,8 @@ namespace Anubis.Runner
 
             if (sliding)
             {
-                _shadow.transform.localPosition = new Vector3(0.26f, -0.84f, 0f);
-                _shadow.transform.localScale = new Vector3(1.34f, 0.13f, 1f);
+                _shadow.transform.localPosition = new Vector3(0.16f, -0.84f, 0f);
+                _shadow.transform.localScale = new Vector3(1.05f, 0.12f, 1f);
                 return;
             }
 
@@ -317,8 +318,25 @@ namespace Anubis.Runner
         {
             var single = Resources.Load<Sprite>(path);
             if (single != null) return single;
+
             var sprites = Resources.LoadAll<Sprite>(path);
-            return sprites != null && sprites.Length > 0 ? sprites[0] : null;
+            if (sprites != null && sprites.Length > 0) return sprites[0];
+
+            // Fallback robusto: se o Unity importar o PNG como Texture2D,
+            // criamos o Sprite em runtime em vez de perder a pose.
+            var texture = Resources.Load<Texture2D>(path);
+            if (texture != null)
+            {
+                return Sprite.Create(
+                    texture,
+                    new Rect(0f, 0f, texture.width, texture.height),
+                    new Vector2(0.5f, 0.05f),
+                    100f,
+                    0,
+                    SpriteMeshType.FullRect);
+            }
+
+            return null;
         }
 
         static Sprite[] LoadFrames(string path)
