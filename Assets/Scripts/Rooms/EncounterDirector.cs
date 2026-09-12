@@ -79,7 +79,8 @@ namespace Anubis.Rooms
                 }
 
                 var enemyObject = new GameObject(spawn.Enemy.DisplayName);
-                enemyObject.transform.position = spawn.LocalPosition;
+                enemyObject.transform.SetParent(transform, false);
+                enemyObject.transform.localPosition = spawn.LocalPosition;
                 var enemy = enemyObject.AddComponent<EnemyController>();
                 enemy.Bind(spawn.Enemy, _player.Health, _signals, _pool);
                 _alive.Add(enemy);

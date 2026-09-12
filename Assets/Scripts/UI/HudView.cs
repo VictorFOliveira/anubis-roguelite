@@ -10,6 +10,7 @@ namespace Anubis.UI
     {
         Text _health;
         Text _meta;
+        Text _run;
         Text _hint;
         Image _healthFill;
         GameSignals _signals;
@@ -25,7 +26,18 @@ namespace Anubis.UI
             signals.PlayerHealthChanged.Subscribe(RefreshHealth);
             signals.EncounterStarted.Subscribe(() => _hint.text = "Elimine os inimigos.  Ataque: mouse esquerdo / X   Dash: espaço / B");
             signals.RewardReady.Subscribe(() => _hint.text = "Sala limpa. Aproxime-se do santuário ou pressione E / Y.");
-            signals.BlessingOfferOpened.Subscribe(() => _hint.text = "Escolha uma bênção.");
+            signals.BlessingOfferOpened.Subscribe(() => _hint.text = "Escolha uma bênção para continuar a run.");
+        }
+
+        public void SetRunProgress(int currentRoom, int totalRooms, string roomName, bool bossRoom)
+        {
+            if (_run == null)
+            {
+                return;
+            }
+
+            var prefix = bossRoom ? "BOSS" : $"SALA {currentRoom}/{totalRooms}";
+            _run.text = $"{prefix}  •  {roomName}";
         }
 
         void RefreshHealth(HealthChangeInfo info)
@@ -35,7 +47,8 @@ namespace Anubis.UI
                 return;
             }
 
-            _health.text = $"Anúbis  {Mathf.CeilToInt(info.Current)}/{Mathf.CeilToInt(info.Max)}";
+            var name = _player?.Definition?.DisplayName ?? "Herói";
+            _health.text = $"{name}  {Mathf.CeilToInt(info.Current)}/{Mathf.CeilToInt(info.Max)}";
             if (_healthFill != null && info.Max > 0f)
             {
                 _healthFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(info.Current / info.Max), 1f);
@@ -62,6 +75,9 @@ namespace Anubis.UI
 
             _health = CreateText("HealthLabel", new Vector2(0f, 1f), new Vector2(40, -82), 28, FontStyle.Bold);
             _meta = CreateText("Meta", new Vector2(0f, 1f), new Vector2(40, -118), 20, FontStyle.Normal);
+            _run = CreateText("RunProgress", new Vector2(0.5f, 1f), new Vector2(0, -54), 24, FontStyle.Bold);
+            _run.alignment = TextAnchor.MiddleCenter;
+            _run.rectTransform.sizeDelta = new Vector2(900, 40);
             _hint = CreateText("Hint", new Vector2(0.5f, 0f), new Vector2(0, 48), 22, FontStyle.Normal);
             _hint.alignment = TextAnchor.MiddleCenter;
             _hint.rectTransform.sizeDelta = new Vector2(1400, 40);

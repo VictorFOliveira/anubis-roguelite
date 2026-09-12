@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using UnityEngine;
 
 namespace Anubis.Rooms
 {
@@ -15,15 +14,24 @@ namespace Anubis.Rooms
         public List<RoomDefinition> BuildLinearRun(int length, int seed)
         {
             var result = new List<RoomDefinition>(length);
-            if (_pool.Count == 0)
+            if (_pool.Count == 0 || length <= 0)
             {
                 return result;
             }
 
             var random = new System.Random(seed);
+            var previousIndex = -1;
+
             for (var i = 0; i < length; i++)
             {
-                result.Add(_pool[random.Next(_pool.Count)]);
+                var index = random.Next(_pool.Count);
+                if (_pool.Count > 1 && index == previousIndex)
+                {
+                    index = (index + 1 + random.Next(_pool.Count - 1)) % _pool.Count;
+                }
+
+                result.Add(_pool[index]);
+                previousIndex = index;
             }
 
             return result;

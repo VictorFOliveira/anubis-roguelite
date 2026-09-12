@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using Anubis.Characters;
 using Anubis.Combat;
-using Anubis.Core;
 using Anubis.Platform;
 using Anubis.Progression;
 using Anubis.Rooms;
@@ -18,6 +17,8 @@ namespace Anubis.Core
     [DefaultExecutionOrder(-100)]
     public sealed class GameBootstrap : MonoBehaviour
     {
+        const int CombatRoomsPerRun = 4;
+
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         static void AutoStart()
         {
@@ -39,8 +40,12 @@ namespace Anubis.Core
         BlessingOfferService _offers;
         BlessingChoiceView _choiceView;
         EndPanelView _endPanel;
+        HudView _hud;
         MetaProgression _meta;
         BlessingDefinition[] _library;
+        readonly List<RoomDefinition> _runRooms = new();
+        Camera _camera;
+        int _roomIndex;
         bool _offerOpen;
         bool _ended;
 
@@ -68,33 +73,33 @@ namespace Anubis.Core
             var scarab = VerticalSliceCatalog.CreateScarab();
             var guardian = VerticalSliceCatalog.CreateGuardian();
             var archer = VerticalSliceCatalog.CreateArcher();
+            var champion = VerticalSliceCatalog.CreateTombChampion();
             _library = VerticalSliceCatalog.CreateBlessings();
-            var room = VerticalSliceCatalog.CreateArena(scarab, guardian, archer);
 
-            var camera = EnsureCamera();
+            var roomPool = VerticalSliceCatalog.CreateRunRoomPool(scarab, guardian, archer);
+            var runBuilder = new ProceduralRunBuilder(roomPool);
+            var seed = unchecked((_meta.Data.RunsStarted * 7919) + System.DateTime.UtcNow.DayOfYear);
+            _runRooms.AddRange(runBuilder.BuildLinearRun(CombatRoomsPerRun, seed));
+            _runRooms.Add(VerticalSliceCatalog.CreateBossArena(scarab, archer, champion));
+
+            _camera = EnsureCamera();
             EnsureEventSystem();
 
-            var playerObject = new GameObject("Anubis");
+            var playerObject = new GameObject(anubis.DisplayName);
             playerObject.transform.position = new Vector3(0f, -3.6f, 0f);
             _player = playerObject.AddComponent<PlayerController>();
-            _player.Bind(anubis, _input, camera, _signals, _pool);
+            _player.Bind(anubis, _input, _camera, _signals, _pool);
             if (_meta.Data.PermanentHealthBonus > 0)
             {
                 _player.Health.AddMaxHealth(_meta.Data.PermanentHealthBonus, true);
             }
-
-            camera.GetComponent<FollowCamera2D>().Configure(_player.transform, room.Size);
-
-            var arenaObject = new GameObject("Arena");
-            _arena = arenaObject.AddComponent<ArenaController>();
-            _arena.Bind(room, _player, _signals, _pool, _input);
 
             _blessings = new BlessingRuntimeService(_player, _signals);
             _offers = new BlessingOfferService(_library);
 
             BuildUi();
             BindFlow();
-            _arena.Begin();
+            BeginRoom(0);
             _signals.RunStarted.Raise();
         }
 
@@ -153,6 +158,34 @@ namespace Anubis.Core
             _endPanel.RestartRequested += Restart;
         }
 
+        void BeginRoom(int index)
+        {
+            if (index < 0 || index >= _runRooms.Count || _ended)
+            {
+                return;
+            }
+
+            _roomIndex = index;
+            if (_arena != null)
+            {
+                Destroy(_arena.gameObject);
+                _arena = null;
+            }
+
+            var room = _runRooms[_roomIndex];
+            _player.transform.position = new Vector3(0f, -3.6f, 0f);
+            _player.SetControlEnabled(true);
+            _camera.GetComponent<FollowCamera2D>().Configure(_player.transform, room.Size);
+
+            var arenaObject = new GameObject($"Arena_{_roomIndex + 1}_{room.Id}");
+            _arena = arenaObject.AddComponent<ArenaController>();
+            _arena.Bind(room, _player, _signals, _pool, _input);
+            _arena.Begin();
+
+            var bossRoom = _roomIndex == _runRooms.Count - 1;
+            _hud?.SetRunProgress(_roomIndex + 1, _runRooms.Count, room.DisplayName, bossRoom);
+        }
+
         void OpenBlessingOffer()
         {
             if (_offerOpen || _ended)
@@ -160,7 +193,7 @@ namespace Anubis.Core
                 return;
             }
 
-            var roll = _offers.Roll(3, _blessings.ChosenIds, Time.frameCount + _meta.Data.RunsStarted);
+            var roll = _offers.Roll(3, _blessings.ChosenIds, Time.frameCount + _meta.Data.RunsStarted + _roomIndex);
             var seen = new List<string>();
             foreach (var blessing in roll)
             {
@@ -185,9 +218,20 @@ namespace Anubis.Core
             _meta.RegisterArenaCleared();
             _choiceView.Hide();
             _offerOpen = false;
+
+            var nextRoom = _roomIndex + 1;
+            if (nextRoom < _runRooms.Count)
+            {
+                BeginRoom(nextRoom);
+                return;
+            }
+
             _ended = true;
+            _player.SetControlEnabled(false);
             _signals.SliceCompleted.Raise();
-            _endPanel.Show("Vertical Slice completo", $"{definition.DisplayName} foi selada.\nA arena e as portas já estão funcionais. Reinicie para outra run.");
+            _endPanel.Show(
+                "Run concluída",
+                $"{definition.DisplayName} foi selada.\nVocê atravessou {_runRooms.Count} salas e derrotou o Campeão da Necrópole.");
         }
 
         void OnPlayerDied()
@@ -199,7 +243,9 @@ namespace Anubis.Core
 
             _ended = true;
             _meta.RegisterDeath();
-            _endPanel.Show("Anúbis caiu", "A progressão permanente foi salva. Tente outra run.");
+            _endPanel.Show(
+                $"{_player.Definition.DisplayName} caiu",
+                $"A progressão permanente foi salva. Você alcançou a sala {_roomIndex + 1} de {_runRooms.Count}.");
         }
 
         void Restart()
@@ -211,7 +257,8 @@ namespace Anubis.Core
         void BuildUi()
         {
             var hud = new GameObject("HUD");
-            hud.AddComponent<HudView>().Bind(_player, _signals, _meta);
+            _hud = hud.AddComponent<HudView>();
+            _hud.Bind(_player, _signals, _meta);
 
             var choice = new GameObject("BlessingChoice");
             _choiceView = choice.AddComponent<BlessingChoiceView>();
