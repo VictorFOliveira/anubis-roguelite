@@ -16,14 +16,13 @@ namespace Anubis.Runner
     {
         static readonly Vector2 StandingColliderSize = new(0.72f, 1.72f);
         static readonly Vector2 StandingColliderOffset = new(0f, 0.02f);
-        static readonly Vector2 SlidingColliderSize = new(1.18f, 0.82f);
-        static readonly Vector2 SlidingColliderOffset = new(0.16f, -0.43f);
+        static readonly Vector2 SlidingColliderSize = new(1.24f, 0.78f);
+        static readonly Vector2 SlidingColliderOffset = new(0.18f, -0.45f);
 
         const float CoyoteDuration = 0.12f;
         const float JumpBufferDuration = 0.12f;
-        const float SlideMinDuration = 0.24f;
-        const float SlideMaxDuration = 0.92f;
-        const float SlideCooldownDuration = 0.14f;
+        const float SlideMinDuration = 0.22f;
+        const float SlideCooldownDuration = 0.12f;
 
         Rigidbody2D _body;
         CapsuleCollider2D _collider;
@@ -78,8 +77,8 @@ namespace Anubis.Runner
                 return;
             }
 
-            TickTimers();
             ReadGroundState();
+            TickTimers();
             ReadInput();
             ResolveMovementActions();
 
@@ -94,6 +93,17 @@ namespace Anubis.Runner
             if (transform.position.y < -8.5f)
             {
                 Die();
+            }
+        }
+
+        void ReadGroundState()
+        {
+            _wasGrounded = IsGrounded;
+            IsGrounded = Physics2D.Raycast(transform.position, Vector2.down, 1.02f, GameLayers.EnvironmentMask);
+
+            if (!_wasGrounded && IsGrounded)
+            {
+                _view.TriggerLanding();
             }
         }
 
@@ -116,17 +126,6 @@ namespace Anubis.Runner
             if (IsSliding)
             {
                 _slideTimer += Time.deltaTime;
-            }
-        }
-
-        void ReadGroundState()
-        {
-            _wasGrounded = IsGrounded;
-            IsGrounded = Physics2D.Raycast(transform.position, Vector2.down, 1.02f, GameLayers.EnvironmentMask);
-
-            if (!_wasGrounded && IsGrounded)
-            {
-                _view.TriggerLanding();
             }
         }
 
@@ -153,6 +152,7 @@ namespace Anubis.Runner
                 _jumpBufferTimer = JumpBufferDuration;
             }
 
+            // Soltar o botão no meio da subida corta o pulo: toque curto = pulo baixo, segurar = pulo alto.
             if (jumpReleased && _body.linearVelocity.y > 2f)
             {
                 var velocity = _body.linearVelocity;
@@ -167,7 +167,7 @@ namespace Anubis.Runner
             {
                 if (IsSliding)
                 {
-                    StopSlide();
+                    StopSlide(true);
                 }
 
                 var velocity = _body.linearVelocity;
@@ -187,13 +187,9 @@ namespace Anubis.Runner
                     StartSlide();
                 }
 
-                if (IsSliding)
+                if (IsSliding && _slideTimer >= SlideMinDuration && !_slideHeld && CanStandUp())
                 {
-                    var canRelease = _slideTimer >= SlideMinDuration;
-                    if ((canRelease && !_slideHeld) || _slideTimer >= SlideMaxDuration)
-                    {
-                        StopSlide();
-                    }
+                    StopSlide(false);
                 }
 
                 return;
@@ -201,16 +197,28 @@ namespace Anubis.Runner
 
             if (IsSliding)
             {
-                StopSlide();
+                StopSlide(true);
             }
 
-            // Apertar para baixo no ar faz Anúbis mergulhar, dando mais controle na aterrissagem.
+            // ↓ no ar funciona como mergulho para aterrissar rapidamente e preparar outro salto/slide.
             if (_slideHeld && _body.linearVelocity.y < 2.5f)
             {
                 var velocity = _body.linearVelocity;
                 velocity.y = Mathf.Min(velocity.y - 26f * Time.deltaTime, -13.5f);
                 _body.linearVelocity = velocity;
             }
+        }
+
+        bool CanStandUp()
+        {
+            var center = (Vector2)transform.position + StandingColliderOffset;
+            var overlap = Physics2D.OverlapCapsule(
+                center,
+                StandingColliderSize * 0.96f,
+                CapsuleDirection2D.Vertical,
+                0f,
+                GameLayers.EnvironmentMask);
+            return overlap == null;
         }
 
         void StartSlide()
@@ -223,9 +231,14 @@ namespace Anubis.Runner
             _view.TriggerSlide();
         }
 
-        void StopSlide()
+        void StopSlide(bool force)
         {
             if (!IsSliding)
+            {
+                return;
+            }
+
+            if (!force && !CanStandUp())
             {
                 return;
             }
@@ -332,7 +345,7 @@ namespace Anubis.Runner
                     UpgradeCollected?.Invoke("Passo de Hórus: salto ampliado");
                     break;
                 case RunnerUpgradeType.HorusLeap:
-                    if (IsSliding) StopSlide();
+                    if (IsSliding) StopSlide(true);
                     transform.position += new Vector3(30f, 4.5f, 0f);
                     var velocity = _body.linearVelocity;
                     velocity.y = 13.5f;
@@ -352,7 +365,7 @@ namespace Anubis.Runner
             }
 
             _dead = true;
-            if (IsSliding) StopSlide();
+            if (IsSliding) StopSlide(true);
             _body.linearVelocity = new Vector2(0f, _body.linearVelocity.y);
             _view.SetDead();
             Died?.Invoke();
