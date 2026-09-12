@@ -41,7 +41,7 @@ namespace Anubis.Runner
             _body.spriteSortPoint = SpriteSortPoint.Pivot;
 
             LoadMovementSprites();
-            ApplySprite(_idleSprite ?? _runSprite, 2.25f);
+            ApplySpriteByHeight(_idleSprite ?? _runSprite, 2.25f);
 
             _dustA = CreateDust("DustA", -0.45f);
             _dustB = CreateDust("DustB", -0.75f);
@@ -56,7 +56,7 @@ namespace Anubis.Runner
 
             TickMotionTimers();
 
-            if (sliding && grounded)
+            if (sliding)
             {
                 AnimateSlide(boosted);
             }
@@ -78,7 +78,17 @@ namespace Anubis.Runner
 
         public void TriggerLanding() => _landingTimer = 0.16f;
         public void TriggerJump() => _jumpKickTimer = 0.15f;
-        public void TriggerSlide() => _slideKickTimer = 0.16f;
+
+        public void TriggerSlide()
+        {
+            _slideKickTimer = 0.22f;
+            if (_slideSprite != null)
+            {
+                _body.sprite = _slideSprite;
+                ApplySpriteByWidth(_slideSprite, 2.35f);
+            }
+        }
+
         public void TriggerStompBounce() => _stompTimer = 0.18f;
 
         void TickMotionTimers()
@@ -92,8 +102,8 @@ namespace Anubis.Runner
         void AnimateRun(float runSpeed, bool boosted)
         {
             const float targetHeight = 2.22f;
-            var speed01 = Mathf.InverseLerp(7f, 12f, runSpeed);
-            var cadence = Mathf.Lerp(9.5f, 14.5f, speed01) * (boosted ? 1.18f : 1f);
+            var speed01 = Mathf.InverseLerp(4f, 12f, runSpeed);
+            var cadence = Mathf.Lerp(8.5f, 14.5f, speed01) * (boosted ? 1.18f : 1f);
 
             _runFrameTimer += Time.deltaTime * cadence;
             if (_runFrames.Length > 0)
@@ -102,26 +112,26 @@ namespace Anubis.Runner
                 if (index != _runFrameIndex || _body.sprite == null)
                 {
                     _runFrameIndex = index;
-                    ApplySprite(_runFrames[_runFrameIndex], targetHeight);
+                    ApplySpriteByHeight(_runFrames[_runFrameIndex], targetHeight);
                 }
             }
             else
             {
-                ApplySprite(_runSprite ?? _walkSprite ?? _idleSprite, targetHeight);
+                ApplySpriteByHeight(_runSprite ?? _walkSprite ?? _idleSprite, targetHeight);
             }
 
             var phase = Time.time * cadence;
             var stride = Mathf.Sin(phase);
             var footPlant = Mathf.Abs(Mathf.Sin(phase));
-            var bounce = footPlant * Mathf.Lerp(0.038f, 0.072f, speed01);
-            var lean = boosted ? -10f : Mathf.Lerp(-4.5f, -7.5f, speed01);
+            var bounce = footPlant * Mathf.Lerp(0.028f, 0.072f, speed01);
+            var lean = boosted ? -10f : Mathf.Lerp(-2f, -7.5f, speed01);
             var landing = _landingTimer > 0f
                 ? Mathf.Sin((1f - _landingTimer / 0.16f) * Mathf.PI)
                 : 0f;
 
             _body.transform.localPosition = new Vector3(0f, bounce - landing * 0.05f, 0f);
             _body.transform.localRotation = Quaternion.Euler(0f, 0f, lean + stride * 1.8f);
-            SetPoseScale(targetHeight,
+            SetPoseScaleByHeight(targetHeight,
                 1f + footPlant * 0.025f + landing * 0.10f,
                 1f - footPlant * 0.020f - landing * 0.13f);
 
@@ -132,7 +142,7 @@ namespace Anubis.Runner
         void AnimateAir(float verticalVelocity, bool boosted)
         {
             const float targetHeight = 2.18f;
-            ApplySprite(_jumpSprite ?? _runSprite ?? _idleSprite, targetHeight);
+            ApplySpriteByHeight(_jumpSprite ?? _runSprite ?? _idleSprite, targetHeight);
 
             var ascending = verticalVelocity > 0.35f;
             var velocity01 = Mathf.Clamp(verticalVelocity / 12f, -1f, 1f);
@@ -157,37 +167,44 @@ namespace Anubis.Runner
 
             _body.transform.localPosition = new Vector3(0.02f, 0.08f + jumpKick * 0.05f, 0f);
             _body.transform.localRotation = Quaternion.Euler(0f, 0f, tilt);
-            SetPoseScale(targetHeight, sx, sy);
+            SetPoseScaleByHeight(targetHeight, sx, sy);
             HideDust();
         }
 
         void AnimateSlide(bool boosted)
         {
-            const float targetHeight = 1.46f;
-            ApplySprite(_slideSprite ?? _runSprite ?? _idleSprite, targetHeight);
+            var sprite = _slideSprite ?? _runSprite ?? _idleSprite;
+            if (sprite == null)
+            {
+                return;
+            }
+
+            // A pose de slide é comprida e baixa; escalar pela largura preserva esse formato.
+            const float targetWidth = 2.35f;
+            ApplySpriteByWidth(sprite, targetWidth);
 
             var phase = Time.time * (boosted ? 22f : 17f);
-            var vibration = Mathf.Sin(phase) * 0.015f;
+            var vibration = Mathf.Sin(phase) * 0.012f;
             var entry = _slideKickTimer > 0f
-                ? Mathf.Sin((1f - _slideKickTimer / 0.16f) * Mathf.PI)
+                ? Mathf.Sin((1f - _slideKickTimer / 0.22f) * Mathf.PI)
                 : 0f;
 
-            _body.transform.localPosition = new Vector3(0.30f, -0.43f + vibration, 0f);
-            _body.transform.localRotation = Quaternion.Euler(0f, 0f, -2f - entry * 3f);
-            SetPoseScale(targetHeight, 1.08f + entry * 0.06f, 0.96f - entry * 0.03f);
+            _body.transform.localPosition = new Vector3(0.34f, -0.46f + vibration, 0f);
+            _body.transform.localRotation = Quaternion.Euler(0f, 0f, -1.5f - entry * 2.5f);
+            SetPoseScaleByWidth(targetWidth, 1.03f + entry * 0.06f, 0.98f - entry * 0.03f);
 
-            AnimateDust(_dustA, phase, 0.05f, 1.65f);
-            AnimateDust(_dustB, phase + 1.6f, 0.34f, 1.45f);
+            AnimateDust(_dustA, phase, 0.05f, 1.80f);
+            AnimateDust(_dustB, phase + 1.6f, 0.34f, 1.55f);
         }
 
         void AnimateShadow(bool grounded, bool sliding, float verticalVelocity)
         {
             if (_shadow == null) return;
 
-            if (sliding && grounded)
+            if (sliding)
             {
-                _shadow.transform.localPosition = new Vector3(0.22f, -0.84f, 0f);
-                _shadow.transform.localScale = new Vector3(1.28f, 0.14f, 1f);
+                _shadow.transform.localPosition = new Vector3(0.26f, -0.84f, 0f);
+                _shadow.transform.localScale = new Vector3(1.34f, 0.13f, 1f);
                 return;
             }
 
@@ -206,7 +223,7 @@ namespace Anubis.Runner
             _walkSprite = LoadFirstSprite("Runner/anubis_walk");
             _runSprite = LoadFirstSprite("Runner/anubis_run") ?? _walkSprite ?? _idleSprite;
             _jumpSprite = LoadFirstSprite("Runner/anubis_jump") ?? _runSprite;
-            _slideSprite = LoadFirstSprite("Runner/anubis_slide") ?? _runSprite;
+            _slideSprite = LoadFirstSprite("Runner/anubis_slide");
 
             var authoredRun = LoadFrames("Runner/AnubisRun");
             if (authoredRun.Length > 0)
@@ -222,7 +239,7 @@ namespace Anubis.Runner
             _runFrames = fallback.ToArray();
         }
 
-        void ApplySprite(Sprite sprite, float targetHeight)
+        void ApplySpriteByHeight(Sprite sprite, float targetHeight)
         {
             if (_body == null || sprite == null) return;
             _body.sprite = sprite;
@@ -230,10 +247,25 @@ namespace Anubis.Runner
             _body.transform.localScale = Vector3.one * scale;
         }
 
-        void SetPoseScale(float targetHeight, float x, float y)
+        void ApplySpriteByWidth(Sprite sprite, float targetWidth)
+        {
+            if (_body == null || sprite == null) return;
+            _body.sprite = sprite;
+            var scale = targetWidth / Mathf.Max(0.05f, sprite.bounds.size.x);
+            _body.transform.localScale = Vector3.one * scale;
+        }
+
+        void SetPoseScaleByHeight(float targetHeight, float x, float y)
         {
             if (_body == null || _body.sprite == null) return;
             var baseScale = targetHeight / Mathf.Max(0.05f, _body.sprite.bounds.size.y);
+            _body.transform.localScale = new Vector3(baseScale * x, baseScale * y, 1f);
+        }
+
+        void SetPoseScaleByWidth(float targetWidth, float x, float y)
+        {
+            if (_body == null || _body.sprite == null) return;
+            var baseScale = targetWidth / Mathf.Max(0.05f, _body.sprite.bounds.size.x);
             _body.transform.localScale = new Vector3(baseScale * x, baseScale * y, 1f);
         }
 
