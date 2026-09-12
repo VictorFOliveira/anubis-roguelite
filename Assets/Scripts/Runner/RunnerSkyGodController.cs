@@ -6,6 +6,7 @@ namespace Anubis.Runner
     public sealed class RunnerSkyGodController : MonoBehaviour
     {
         const float GroundSurfaceY = -2.65f;
+        const float RaTargetWidth = 2.30f;
 
         RunnerPlayerController _player;
         Camera _camera;
@@ -158,7 +159,7 @@ namespace Anubis.Runner
 
             if (_raRenderer != null && _castSprite != null)
             {
-                _raRenderer.sprite = _castSprite;
+                ApplyRaSprite(_castSprite);
             }
         }
 
@@ -168,7 +169,7 @@ namespace Anubis.Runner
             {
                 if (_raRenderer != null && _idleSprite != null && _raRenderer.sprite != _idleSprite)
                 {
-                    _raRenderer.sprite = _idleSprite;
+                    ApplyRaSprite(_idleSprite);
                 }
 
                 if (_fallbackArm != null)
@@ -209,21 +210,35 @@ namespace Anubis.Runner
         void BuildVisual()
         {
             _root = new GameObject("RaOnCloud").transform;
-            _root.localScale = Vector3.one * 1.18f;
+            _root.localScale = Vector3.one;
 
             if (_idleSprite != null)
             {
                 _raRenderer = _root.gameObject.AddComponent<SpriteRenderer>();
-                _raRenderer.sprite = _idleSprite;
                 _raRenderer.sortingOrder = 130;
+                ApplyRaSprite(_idleSprite);
 
                 _muzzle = new GameObject("Muzzle").transform;
                 _muzzle.SetParent(_root, false);
-                _muzzle.localPosition = new Vector3(-0.82f, 0.55f, 0f);
+                _muzzle.localPosition = new Vector3(-0.70f, 0.48f, 0f);
                 return;
             }
 
+            Debug.LogWarning("[Runner] Sprite de Rá não foi carregado; usando fallback procedural.");
             BuildFallbackVisual();
+        }
+
+        void ApplyRaSprite(Sprite sprite)
+        {
+            if (_raRenderer == null || sprite == null)
+            {
+                return;
+            }
+
+            _raRenderer.sprite = sprite;
+            var width = Mathf.Max(0.05f, sprite.bounds.size.x);
+            var scale = RaTargetWidth / width;
+            _raRenderer.transform.localScale = Vector3.one * scale;
         }
 
         void BuildFallbackVisual()
@@ -289,6 +304,18 @@ namespace Anubis.Runner
                 {
                     return sprites[0];
                 }
+
+                var texture = Resources.Load<Texture2D>(path);
+                if (texture != null)
+                {
+                    return Sprite.Create(
+                        texture,
+                        new Rect(0f, 0f, texture.width, texture.height),
+                        new Vector2(0.5f, 0.12f),
+                        100f,
+                        0,
+                        SpriteMeshType.FullRect);
+                }
             }
 
             return null;
@@ -336,7 +363,15 @@ namespace Anubis.Runner
                 ? customSprite
                 : RuntimeSpriteFactory.CreateCircle(new Color(1f, 0.83f, 0.14f), 32, 0.96f);
 
-            _baseScale = customSprite != null ? 0.32f : 0.28f;
+            if (customSprite != null)
+            {
+                _baseScale = 0.50f / Mathf.Max(0.05f, customSprite.bounds.size.x);
+            }
+            else
+            {
+                _baseScale = 0.28f;
+            }
+
             transform.localScale = Vector3.one * _baseScale;
 
             BuildGlow();
