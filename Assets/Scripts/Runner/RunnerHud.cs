@@ -89,8 +89,8 @@ namespace Anubis.Runner
             _status = CreateText("Status", new Vector2(0f, 1f), new Vector2(34f, -46f), new Vector2(650f, 44f), 22, FontStyle.Bold, TextAnchor.MiddleLeft);
             _upgrade = CreateText("Upgrade", new Vector2(0.5f, 0.18f), new Vector2(0f, 0f), new Vector2(900f, 60f), 30, FontStyle.Bold, TextAnchor.MiddleCenter);
 
-            _controls = CreateText("Controls", new Vector2(0f, 0f), new Vector2(28f, 26f), new Vector2(900f, 42f), 19, FontStyle.Bold, TextAnchor.LowerLeft);
-            _controls.text = "A / ← recuar   •   D / → avançar   •   ESPAÇO pular   •   S / ↓ deslizar";
+            _controls = CreateText("Controls", new Vector2(0f, 0f), new Vector2(28f, 26f), new Vector2(980f, 42f), 19, FontStyle.Bold, TextAnchor.LowerLeft);
+            _controls.text = "A / ← recuar   •   D / → avançar   •   ESPAÇO pular   •   S / ↓ slide";
 
             var god = CreateText("Ra", new Vector2(1f, 1f), new Vector2(-42f, -42f), new Vector2(360f, 48f), 24, FontStyle.Bold, TextAnchor.MiddleRight);
             god.text = "RÁ • JULGAMENTO SOLAR";
