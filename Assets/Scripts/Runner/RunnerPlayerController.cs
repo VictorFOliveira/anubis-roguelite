@@ -16,8 +16,8 @@ namespace Anubis.Runner
     {
         static readonly Vector2 StandingColliderSize = new(0.72f, 1.72f);
         static readonly Vector2 StandingColliderOffset = new(0f, 0.02f);
-        static readonly Vector2 SlidingColliderSize = new(1.24f, 0.78f);
-        static readonly Vector2 SlidingColliderOffset = new(0.18f, -0.45f);
+        static readonly Vector2 SlidingColliderSize = new(1.42f, 0.70f);
+        static readonly Vector2 SlidingColliderOffset = new(0.10f, -0.49f);
 
         const float CoyoteDuration = 0.12f;
         const float JumpBufferDuration = 0.12f;
@@ -166,16 +166,18 @@ namespace Anubis.Runner
 
             var gamepadHorizontal = gamepad != null ? gamepad.leftStick.x.ReadValue() : 0f;
             if (Mathf.Abs(gamepadHorizontal) < 0.18f) gamepadHorizontal = 0f;
-            _horizontalInput = Mathf.Clamp(Mathf.Abs(gamepadHorizontal) > Mathf.Abs(keyboardHorizontal)
-                ? gamepadHorizontal
-                : keyboardHorizontal, -1f, 1f);
+            _horizontalInput = Mathf.Clamp(
+                Mathf.Abs(gamepadHorizontal) > Mathf.Abs(keyboardHorizontal)
+                    ? gamepadHorizontal
+                    : keyboardHorizontal,
+                -1f,
+                1f);
 
             if (jumpPressed)
             {
                 _jumpBufferTimer = JumpBufferDuration;
             }
 
-            // Toque curto = pulo baixo; segurar = pulo alto.
             if (jumpReleased && _body.linearVelocity.y > 2f)
             {
                 var velocity = _body.linearVelocity;
@@ -228,7 +230,6 @@ namespace Anubis.Runner
                 StopSlide(true);
             }
 
-            // ↓ no ar faz Anúbis cair mais rápido.
             if (_slideHeld && _body.linearVelocity.y < 2.5f)
             {
                 var velocity = _body.linearVelocity;
@@ -303,7 +304,6 @@ namespace Anubis.Runner
                 speed = Mathf.Lerp(autoSpeed, BackwardControlSpeed, retreatAmount);
             }
 
-            // O recuo é tático: dá espaço para esquivar, mas não deixa voltar o mapa inteiro.
             if (transform.position.x <= _furthestX - MaxRetreatWorldUnits && speed < 0f)
             {
                 speed = 0.25f;
