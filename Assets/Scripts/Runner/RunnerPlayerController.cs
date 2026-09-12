@@ -165,9 +165,16 @@ namespace Anubis.Runner
         {
             if (_jumpBufferTimer > 0f && _coyoteTimer > 0f)
             {
+                // Embaixo de uma viga baixa o Anúbis continua deslizando em vez de
+                // expandir o collider e ficar preso dentro do obstáculo.
+                if (IsSliding && !CanStandUp())
+                {
+                    return;
+                }
+
                 if (IsSliding)
                 {
-                    StopSlide(true);
+                    StopSlide(false);
                 }
 
                 var velocity = _body.linearVelocity;
