@@ -21,19 +21,25 @@ namespace Anubis.Runner
 
         const float CoyoteDuration = 0.12f;
         const float JumpBufferDuration = 0.12f;
-        const float SlideMinDuration = 0.22f;
+        const float SlideMinDuration = 0.52f;
         const float SlideCooldownDuration = 0.12f;
+        const float DistanceMetersPerWorldUnit = 0.50f;
+        const float MaxRetreatWorldUnits = 3.6f;
+        const float ForwardControlBonus = 2.25f;
+        const float BackwardControlSpeed = -2.35f;
 
         Rigidbody2D _body;
         CapsuleCollider2D _collider;
         RunnerAnubisView _view;
         float _startX;
+        float _furthestX;
         float _invulnerability;
         float _boostTimer;
         float _coyoteTimer;
         float _jumpBufferTimer;
         float _slideTimer;
         float _slideCooldown;
+        float _horizontalInput;
         bool _dead;
         bool _wasGrounded;
         bool _slideHeld;
@@ -41,19 +47,21 @@ namespace Anubis.Runner
         public event Action Died;
         public event Action<string> UpgradeCollected;
 
-        public float BaseRunSpeed { get; private set; } = 7f;
-        public float DistanceMeters => Mathf.Max(0f, (transform.position.x - _startX) * 10f);
+        public float BaseRunSpeed { get; private set; } = 6.6f;
+        public float DistanceMeters => Mathf.Max(0f, (_furthestX - _startX) * DistanceMetersPerWorldUnit);
         public int ShieldCharges { get; private set; }
         public float JumpMultiplier { get; private set; } = 1f;
         public bool IsDead => _dead;
         public bool IsGrounded { get; private set; }
         public bool IsSliding { get; private set; }
         public float CurrentRunSpeed { get; private set; }
+        public float HorizontalInput => _horizontalInput;
 
         public void Configure()
         {
             gameObject.layer = GameLayers.Player;
             _startX = transform.position.x;
+            _furthestX = _startX;
 
             _body = gameObject.AddComponent<Rigidbody2D>();
             _body.gravityScale = 1f;
@@ -76,6 +84,8 @@ namespace Anubis.Runner
             {
                 return;
             }
+
+            _furthestX = Mathf.Max(_furthestX, transform.position.x);
 
             ReadGroundState();
             TickTimers();
@@ -145,14 +155,27 @@ namespace Anubis.Runner
             _slideHeld = keyboard != null &&
                 (keyboard.sKey.isPressed || keyboard.downArrowKey.isPressed || keyboard.leftCtrlKey.isPressed);
             _slideHeld |= gamepad != null &&
-                (gamepad.dpad.down.isPressed || gamepad.leftStick.down.isPressed || gamepad.rightShoulder.isPressed);
+                (gamepad.dpad.down.isPressed || gamepad.rightShoulder.isPressed);
+
+            var keyboardHorizontal = 0f;
+            if (keyboard != null)
+            {
+                if (keyboard.aKey.isPressed || keyboard.leftArrowKey.isPressed) keyboardHorizontal -= 1f;
+                if (keyboard.dKey.isPressed || keyboard.rightArrowKey.isPressed) keyboardHorizontal += 1f;
+            }
+
+            var gamepadHorizontal = gamepad != null ? gamepad.leftStick.x.ReadValue() : 0f;
+            if (Mathf.Abs(gamepadHorizontal) < 0.18f) gamepadHorizontal = 0f;
+            _horizontalInput = Mathf.Clamp(Mathf.Abs(gamepadHorizontal) > Mathf.Abs(keyboardHorizontal)
+                ? gamepadHorizontal
+                : keyboardHorizontal, -1f, 1f);
 
             if (jumpPressed)
             {
                 _jumpBufferTimer = JumpBufferDuration;
             }
 
-            // Soltar o botão no meio da subida corta o pulo: toque curto = pulo baixo, segurar = pulo alto.
+            // Toque curto = pulo baixo; segurar = pulo alto.
             if (jumpReleased && _body.linearVelocity.y > 2f)
             {
                 var velocity = _body.linearVelocity;
@@ -165,8 +188,6 @@ namespace Anubis.Runner
         {
             if (_jumpBufferTimer > 0f && _coyoteTimer > 0f)
             {
-                // Embaixo de uma viga baixa o Anúbis continua deslizando em vez de
-                // expandir o collider e ficar preso dentro do obstáculo.
                 if (IsSliding && !CanStandUp())
                 {
                     return;
@@ -207,7 +228,7 @@ namespace Anubis.Runner
                 StopSlide(true);
             }
 
-            // ↓ no ar funciona como mergulho para aterrissar rapidamente e preparar outro salto/slide.
+            // ↓ no ar faz Anúbis cair mais rápido.
             if (_slideHeld && _body.linearVelocity.y < 2.5f)
             {
                 var velocity = _body.linearVelocity;
@@ -264,20 +285,36 @@ namespace Anubis.Runner
                 return;
             }
 
-            var difficulty = Mathf.Min(4.5f, DistanceMeters / 1800f);
-            var speed = BaseRunSpeed + difficulty;
-
-            if (_boostTimer > 0f)
-            {
-                speed *= 1.7f;
-            }
+            var difficulty = Mathf.Min(3.6f, DistanceMeters / 1400f);
+            var autoSpeed = BaseRunSpeed + difficulty;
+            var speed = autoSpeed;
 
             if (IsSliding)
             {
-                speed += 0.85f;
+                speed = autoSpeed + 0.9f;
+            }
+            else if (_horizontalInput > 0.05f)
+            {
+                speed = autoSpeed + ForwardControlBonus * _horizontalInput;
+            }
+            else if (_horizontalInput < -0.05f)
+            {
+                var retreatAmount = Mathf.InverseLerp(0f, -1f, _horizontalInput);
+                speed = Mathf.Lerp(autoSpeed, BackwardControlSpeed, retreatAmount);
             }
 
-            CurrentRunSpeed = speed;
+            // O recuo é tático: dá espaço para esquivar, mas não deixa voltar o mapa inteiro.
+            if (transform.position.x <= _furthestX - MaxRetreatWorldUnits && speed < 0f)
+            {
+                speed = 0.25f;
+            }
+
+            if (_boostTimer > 0f)
+            {
+                speed = Mathf.Max(speed, autoSpeed * 1.7f);
+            }
+
+            CurrentRunSpeed = Mathf.Abs(speed);
             var velocity = _body.linearVelocity;
             velocity.x = speed;
             _body.linearVelocity = velocity;
@@ -354,12 +391,13 @@ namespace Anubis.Runner
                 case RunnerUpgradeType.HorusLeap:
                     if (IsSliding) StopSlide(true);
                     transform.position += new Vector3(30f, 4.5f, 0f);
+                    _furthestX = Mathf.Max(_furthestX, transform.position.x);
                     var velocity = _body.linearVelocity;
                     velocity.y = 13.5f;
                     _body.linearVelocity = velocity;
                     _boostTimer = 2.1f;
                     _view.TriggerJump();
-                    UpgradeCollected?.Invoke("Voo de Hórus: +300 m!");
+                    UpgradeCollected?.Invoke("Voo de Hórus: avanço divino!");
                     break;
             }
         }
