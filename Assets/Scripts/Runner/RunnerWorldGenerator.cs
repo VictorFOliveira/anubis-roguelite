@@ -99,7 +99,7 @@ namespace Anubis.Runner
             var root = new GameObject($"Chunk_{index:000}_{biome}");
             root.transform.SetParent(transform, false);
 
-            var pattern = index == 0 ? 0 : Mathf.Abs((index * 17 + index / 3) % 4);
+            var pattern = index == 0 ? 0 : Mathf.Abs((index * 17 + index / 3) % 5);
             switch (pattern)
             {
                 case 0:
@@ -116,10 +116,14 @@ namespace Anubis.Runner
                     CreateObstacle(root.transform, startX + 9f, 1.2f, 1.35f, biome);
                     CreateObstacle(root.transform, startX + 16f, 1.5f, 1.8f, biome);
                     break;
-                default:
+                case 3:
                     CreateGround(root.transform, startX, ChunkWidth, biome);
                     SpawnEnemy(root.transform, startX + 8f, index);
                     SpawnEnemy(root.transform, startX + 17f, index + 1);
+                    break;
+                default:
+                    CreateGround(root.transform, startX, ChunkWidth, biome);
+                    CreateOverheadObstacle(root.transform, startX + 11.5f, biome);
                     break;
             }
 
@@ -145,8 +149,7 @@ namespace Anubis.Runner
             renderer.color = GroundColor(biome);
             renderer.sortingOrder = GameSorting.Floor;
 
-            var collider = go.AddComponent<BoxCollider2D>();
-            collider.size = Vector2.one;
+            go.AddComponent<BoxCollider2D>().size = Vector2.one;
         }
 
         void CreateObstacle(Transform parent, float x, float width, float height, RunnerBiome biome)
@@ -161,8 +164,38 @@ namespace Anubis.Runner
             renderer.sprite = _unit;
             renderer.color = GroundColor(biome) * 0.82f;
             renderer.sortingOrder = GameSorting.Environment;
-
             go.AddComponent<BoxCollider2D>().size = Vector2.one;
+        }
+
+        void CreateOverheadObstacle(Transform parent, float x, RunnerBiome biome)
+        {
+            // A base da viga fica alta o bastante para o collider de slide passar,
+            // mas baixa o bastante para atingir Anúbis correndo em pé.
+            const float width = 3.8f;
+            const float height = 1.10f;
+            const float centerY = -0.88f;
+
+            var beam = new GameObject("LowTempleBeam_SLIDE");
+            beam.layer = GameLayers.Environment;
+            beam.transform.SetParent(parent, false);
+            beam.transform.position = new Vector3(x, centerY, 0f);
+            beam.transform.localScale = new Vector3(width, height, 1f);
+
+            var renderer = beam.AddComponent<SpriteRenderer>();
+            renderer.sprite = _unit;
+            renderer.color = GroundColor(biome) * 0.72f;
+            renderer.sortingOrder = GameSorting.Environment + 1;
+            beam.AddComponent<BoxCollider2D>().size = Vector2.one;
+
+            // Faixa visual para o jogador perceber que é uma barreira baixa e deve deslizar.
+            var trim = new GameObject("GoldTrim");
+            trim.transform.SetParent(parent, false);
+            trim.transform.position = new Vector3(x, centerY - height * 0.40f, -0.01f);
+            trim.transform.localScale = new Vector3(width * 0.94f, 0.10f, 1f);
+            var trimRenderer = trim.AddComponent<SpriteRenderer>();
+            trimRenderer.sprite = _unit;
+            trimRenderer.color = new Color(0.88f, 0.63f, 0.18f);
+            trimRenderer.sortingOrder = GameSorting.Environment + 2;
         }
 
         static void SpawnEnemy(Transform parent, float x, int seed)
