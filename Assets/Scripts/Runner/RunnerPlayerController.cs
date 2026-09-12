@@ -176,7 +176,7 @@ namespace Anubis.Runner
                     UpgradeCollected?.Invoke("Passo de Hórus: salto ampliado");
                     break;
                 case RunnerUpgradeType.HorusLeap:
-                    transform.position += Vector3.right * 30f;
+                    transform.position += new Vector3(30f, 4.5f, 0f);
                     var velocity = _body.linearVelocity;
                     velocity.y = 13.5f;
                     _body.linearVelocity = velocity;
