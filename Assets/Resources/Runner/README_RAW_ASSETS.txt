@@ -1,0 +1,1 @@
+Os arquivos *_raw.bytes sao copias PNG binárias usadas como fallback robusto pelo RunnerSpriteLoader. Eles existem para garantir que Rá, o orbe e o slide sejam carregados mesmo se o Unity não registrar o PNG principal como Sprite no import local.
